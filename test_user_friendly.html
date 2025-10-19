@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI唱歌分析 - 专业声乐评测</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-top: 20px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .upload-area {
+            border: 2px dashed #fff;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+        .result {
+            display: none;
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .score-card {
+            background: rgba(255,255,255,0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎵 AI唱歌分析工具</h1>
+    
+    <div class="container">
+        <div class="upload-area" id="uploadArea">
+            <h3>点击选择音频文件 或 将文件拖拽到这里</h3>
+            <p>支持格式: MP3, WAV, M4A 等</p>
+            <input type="file" id="audioFile" accept="audio/*" style="display: none;">
+        </div>
+        
+        <div style="text-align: center;">
+            <select id="userLevel" style="padding: 10px; border-radius: 5px;">
+                <option value="beginner">🎯 初学者</option>
+                <option value="intermediate">🚀 进阶歌手</option>
+                <option value="advanced">🌟 专业歌手</option>
+            </select>
+            <button onclick="analyze()">开始分析</button>
+        </div>
+        
+        <div class="result" id="result">
+            <h2>🎉 分析结果</h2>
+            
+            <div class="score-card">
+                <h3>总体评分: <span id="overallScore">0</span>分</h3>
+            </div>
+            
+            <h3>技术分析</h3>
+            <div class="score-card">
+                <p>🎵 音准准确度: <span id="pitchScore">0</span>分</p>
+                <p>🥁 节奏稳定性: <span id="rhythmScore">0</span>分</p>
+                <p>📊 演唱完整度: <span id="completenessScore">0</span>分</p>
+                <p>💨 演唱流畅度: <span id="fluencyScore">0</span>分</p>
+            </div>
+            
+            <h3>改进建议</h3>
+            <div id="feedbackList"></div>
+            
+            <h3>推荐练习</h3>
+            <div id="exercisesList"></div>
+        </div>
+    </div>
+
+    <script>
+        // 点击上传区域触发文件选择
+        document.getElementById('uploadArea').addEventListener('click', function() {
+            document.getElementById('audioFile').click();
+        });
+        
+        // 拖拽上传功能
+        const uploadArea = document.getElementById('uploadArea');
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.style.background = 'rgba(255,255,255,0.2)';
+        });
+        
+        uploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            uploadArea.style.background = '';
+        });
+        
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.style.background = '';
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('audioFile').files = files;
+                alert('文件已选择: ' + files[0].name);
+            }
+        });
+
+        async function analyze() {
+            const fileInput = document.getElementById('audioFile');
+            const userLevel = document.getElementById('userLevel').value;
+            const resultDiv = document.getElementById('result');
+            
+            if (!fileInput.files[0]) {
+                alert('请先选择音频文件');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('audio_file', fileInput.files[0]);
+            formData.append('user_level', userLevel);
+            
+            try {
+                resultDiv.style.display = 'none';
+                alert('分析中...请稍候');
+                
+                const response = await fetch('http://localhost:8000/api/v1/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // 显示结果
+                    document.getElementById('overallScore').textContent = result.data.overall_score.toFixed(1);
+                    document.getElementById('pitchScore').textContent = result.data.technical_scores.pitch_accuracy.toFixed(1);
+                    document.getElementById('rhythmScore').textContent = result.data.technical_scores.rhythm_accuracy.toFixed(1);
+                    document.getElementById('completenessScore').textContent = result.data.technical_scores.completeness.toFixed(1);
+                    document.getElementById('fluencyScore').textContent = result.data.technical_scores.fluency.toFixed(1);
+                    
+                    // 显示反馈建议
+                    const feedbackList = document.getElementById('feedbackList');
+                    feedbackList.innerHTML = result.data.personalized_feedback.map(item => 
+                        `<div class="score-card">${item}</div>`
+                    ).join('');
+                    
+                    // 显示练习建议
+                    const exercisesList = document.getElementById('exercisesList');
+                    exercisesList.innerHTML = result.data.improvement_plan.daily_exercises.map(item => 
+                        `<div class="score-card">${item}</div>`
+                    ).join('');
+                    
+                    resultDiv.style.display = 'block';
+                } else {
+                    alert('分析失败: ' + result.message);
+                }
+            } catch (error) {
+                alert('请求失败，请确保后端服务正在运行\n错误: ' + error);
+            }
+        }
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>唱歌分析测试</title>
+</head>
+<body>
+    <h1>🎵 AI唱歌分析测试</h1>
+    <div>
+        <input type="file" id="audioFile" accept="audio/*">
+        <select id="userLevel">
+            <option value="beginner">初学者</option>
+            <option value="intermediate">进阶</option>
+            <option value="advanced">专业</option>
+        </select>
+        <button onclick="analyze()">开始分析</button>
+    </div>
+    <div id="result" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc;"></div>
+    <script>
+        async function analyze() {
+            const fileInput = document.getElementById("audioFile");
+            const userLevel = document.getElementById("userLevel").value;
+            const resultDiv = document.getElementById("result");
+            if (!fileInput.files[0]) {
+                alert("请选择音频文件");
+                return;
+            }
+            const formData = new FormData();
+            formData.append("audio_file", fileInput.files[0]);
+            formData.append("user_level", userLevel);
+            try {
+                resultDiv.innerHTML = "分析中...";
+                const response = await fetch("http://localhost:8000/api/v1/analyze", {
+                    method: "POST",
+                    body: formData
+                });
+                const result = await response.json();
+                if (result.success) {
+                    resultDiv.innerHTML = `<h3>🎉 分析完成！</h3>
+                        <p><strong>总体评分:</strong> ${result.data.overall_score.toFixed(1)}分</p>
+                        <h4>技术分析:</h4>
+                        <ul>
+                            <li>🎵 音准: ${result.data.technical_scores.pitch_accuracy.toFixed(1)}分</li>
+                            <li>🥁 节奏: ${result.data.technical_scores.rhythm_accuracy.toFixed(1)}分</li>
+                        </ul>
+                        <h4>改进建议:</h4>
+                        <ul>${result.data.personalized_feedback.map(item => `<li>${item}</li>`).join("")}</ul>`;
+                } else {
+                    resultDiv.innerHTML = `分析失败: ${result.message}`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `请求失败: ${error}`;
+            }
+        }
+    </script>
+</body>
+</html>
