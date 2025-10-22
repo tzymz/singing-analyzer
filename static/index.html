@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI唱歌分析</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .upload-area {
+            border: 2px dashed #fff;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            cursor: pointer;
+        }
+        .upload-area:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            display: none;
+        }
+        .progress {
+            width: 100%;
+            background: #f0f0f0;
+            border-radius: 5px;
+            margin: 10px 0;
+            display: none;
+        }
+        .progress-bar {
+            width: 0%;
+            height: 20px;
+            background: #4CAF50;
+            border-radius: 5px;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 AI唱歌分析</h1>
+        <p>上传你的唱歌音频，获取专业的AI分析报告</p>
+        
+        <div class="upload-area" id="uploadArea">
+            <input type="file" id="audioFile" accept="audio/*" style="display: none;">
+            <p>📁 点击选择音频文件 或 拖拽文件到这里</p>
+            <p style="font-size: 14px; opacity: 0.8;">支持格式: MP3, WAV, M4A 等</p>
+        </div>
+        
+        <div style="text-align: center;">
+            <button id="analyzeBtn" disabled>开始分析</button>
+        </div>
+        
+        <div class="progress" id="progressBar">
+            <div class="progress-bar" id="progressFill"></div>
+        </div>
+        
+        <div class="result" id="result">
+            <h3>分析结果</h3>
+            <pre id="resultContent"></pre>
+        </div>
+    </div>
+
+    <script>
+        const audioFile = document.getElementById('audioFile');
+        const uploadArea = document.getElementById('uploadArea');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const resultDiv = document.getElementById('result');
+        const resultContent = document.getElementById('resultContent');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+
+        // 点击上传区域选择文件
+        uploadArea.addEventListener('click', () => {
+            audioFile.click();
+        });
+
+        // 拖拽功能
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = 'rgba(255, 255, 255, 0.2)';
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.background = '';
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = '';
+            if (e.dataTransfer.files.length > 0) {
+                audioFile.files = e.dataTransfer.files;
+                updateFileInfo();
+            }
+        });
+
+        // 文件选择变化
+        audioFile.addEventListener('change', updateFileInfo);
+
+        function updateFileInfo() {
+            if (audioFile.files.length > 0) {
+                const file = audioFile.files[0];
+                uploadArea.innerHTML = `
+                    <p>✅ 已选择文件: ${file.name}</p>
+                    <p style="font-size: 14px; opacity: 0.8;">大小: ${(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                `;
+                analyzeBtn.disabled = false;
+            }
+        }
+
+        // 分析按钮点击
+        analyzeBtn.addEventListener('click', async () => {
+            const file = audioFile.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('audio_file', file);  // 重要：字段名改为 audio_file
+            formData.append('user_level', 'beginner');  // 添加用户水平参数
+
+            // 显示进度条
+            progressBar.style.display = 'block';
+            progressFill.style.width = '30%';
+
+            try {
+                const response = await fetch('/api/v1/analyze', {  // 重要：路径改为 /analyze
+                    method: 'POST',
+                    body: formData
+                });
+
+                progressFill.style.width = '70%';
+
+                if (!response.ok) {
+                    throw new Error(`上传失败: ${response.status} ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                progressFill.style.width = '100%';
+
+                // 显示结果
+                resultContent.textContent = JSON.stringify(result, null, 2);
+                resultDiv.style.display = 'block';
+
+                // 2秒后隐藏进度条
+                setTimeout(() => {
+                    progressBar.style.display = 'none';
+                    progressFill.style.width = '0%';
+                }, 2000);
+
+            } catch (error) {
+                resultContent.textContent = `错误: ${error.message}`;
+                resultDiv.style.display = 'block';
+                progressBar.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
