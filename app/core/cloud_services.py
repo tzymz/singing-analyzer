@@ -42,11 +42,11 @@ class CloudServiceManager:
                 
                 # 初始化ASR服务
                 if hasattr(settings, 'ALIYUN_ASR_API_KEY') and settings.ALIYUN_ASR_API_KEY:
+                    from app.core.real_asr_service import RealASRService
                     self.asr_service = RealASRService(api_key=settings.ALIYUN_ASR_API_KEY)
                     print("🎤 Fun-ASR服务初始化完成 - 准备真实AI分析")
                 else:
-                    print("⚠️ 未找到ASR API Key，使用模拟模式")
-                
+                    print("⚠️ 未找到ASR API Key，使用模拟模式")                 
             except Exception as e:
                 print(f"❌ 连接失败: {e}")
         else:
