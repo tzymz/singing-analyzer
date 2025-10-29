@@ -7,6 +7,16 @@ import uuid
 from typing import Optional
 import tempfile
 
+# 导入您现有的服务
+try:
+    from services.audio_service import process_audio
+    from services.analysis_service import analyze_singing
+    from core.cloud_services import upload_to_oss, call_funasr_api
+    HAS_SERVICES = True
+except ImportError as e:
+    print(f"导入服务模块失败: {e}")
+    HAS_SERVICES = False
+
 # 创建FastAPI应用
 app = FastAPI(title="AI唱歌分析API")
 
@@ -25,7 +35,7 @@ async def root():
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "healthy", "service": "AI唱歌分析API"}
+    return {"status": "healthy", "service": "AI唱歌分析API", "has_services": HAS_SERVICES}
 
 @app.post("/api/upload-audio")
 async def upload_audio(file: UploadFile = File(...)):
@@ -55,38 +65,44 @@ async def upload_audio(file: UploadFile = File(...)):
         
         # 生成唯一文件名
         unique_filename = f"{uuid.uuid4()}{file_ext}"
-        
-        # 保存文件到临时目录
         temp_file_path = os.path.join(tempfile.gettempdir(), unique_filename)
         
+        # 保存文件到临时目录
         async with aiofiles.open(temp_file_path, 'wb') as temp_file:
             await temp_file.write(content)
         
         print(f"文件已保存到: {temp_file_path}")
         
-        # 这里可以添加您的音频处理逻辑
-        # 例如调用阿里云OSS和FunASR服务
-        
-        # 模拟处理结果
-        analysis_result = {
-            "status": "success",
-            "score": 85,
-            "feedback": "音准良好，节奏稳定，建议加强情感表达",
-            "details": {
-                "pitch_accuracy": "82%",
-                "rhythm_stability": "88%",
-                "vocal_range": "C3-G5",
-                "recommendations": ["练习气息控制", "注意尾音处理"]
-            }
-        }
-        
-        return JSONResponse({
-            "status": "success",
-            "message": "文件上传和分析成功",
-            "filename": file.filename,
-            "size": file_size,
-            "analysis": analysis_result
-        })
+        # 使用您现有的服务处理音频
+        if HAS_SERVICES:
+            try:
+                # 音频预处理
+                processed_audio = process_audio(temp_file_path)
+                
+                # 上传到OSS
+                oss_url = upload_to_oss(processed_audio, unique_filename)
+                
+                # 调用FunASR分析
+                analysis_result = call_funasr_api(oss_url)
+                
+                # 唱歌分析
+                singing_analysis = analyze_singing(analysis_result)
+                
+                return JSONResponse({
+                    "status": "success",
+                    "message": "AI分析完成",
+                    "filename": file.filename,
+                    "size": file_size,
+                    "analysis": singing_analysis
+                })
+                
+            except Exception as service_error:
+                print(f"服务处理错误: {service_error}")
+                # 如果服务出错，返回模拟结果
+                return get_fallback_analysis(file.filename, file_size)
+        else:
+            # 没有服务模块时返回模拟结果
+            return get_fallback_analysis(file.filename, file_size)
         
     except HTTPException:
         raise
@@ -99,6 +115,26 @@ async def upload_audio(file: UploadFile = File(...)):
                 "message": f"文件处理失败: {str(e)}"
             }
         )
+
+def get_fallback_analysis(filename, file_size):
+    """返回模拟分析结果"""
+    return JSONResponse({
+        "status": "success",
+        "message": "文件上传成功（模拟分析模式）",
+        "filename": filename,
+        "size": file_size,
+        "analysis": {
+            "status": "completed",
+            "score": 78,
+            "feedback": "音准良好，节奏需要加强",
+            "details": {
+                "pitch_accuracy": "75%",
+                "rhythm_stability": "68%", 
+                "vocal_range": "D3-F5",
+                "recommendations": ["加强节奏感训练", "注意音准稳定性", "练习气息控制"]
+            }
+        }
+    })
 
 # Vercel需要这个handler
 handler = app
